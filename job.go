@@ -10,9 +10,19 @@ import (
 	"time"
 )
 
+type JobResult struct {
+	Code     int
+	Duration time.Duration
+	Size     int
+	Err      error
+}
+
 type Job struct {
 	Url      string
 	Interval time.Duration
+	Result   chan JobResult
+	Quit     chan bool
+	Done     chan bool
 }
 
 var (
@@ -32,39 +42,38 @@ func NewJob(url string, defaultInterval time.Duration) *Job {
 			job.Interval = time.Duration(intervalNum) * time.Second
 		}
 	}
+	job.Result = make(chan JobResult)
+	job.Quit = make(chan bool)
+	job.Done = make(chan bool)
 	return job
 }
 
-type JobResult struct {
-	Code     int
-	Duration time.Duration
-	Size     int
-	Err      error
-}
-
-func (job *Job) Loop(result chan JobResult, quit chan bool) {
+func (job *Job) Loop() {
 	go func() {
-		log.Printf("Begin Loop For Job: %s\n", job.Url)
+		defer close(job.Done)
+		log.Printf("Begin Loop For Job: %s, Interval: %f\n", job.Url, job.Interval.Seconds())
+		t := time.NewTicker(job.Interval)
+		defer t.Stop()
 	loop:
 		for {
 			select {
-			case <-quit:
+			case <-job.Quit:
 				break loop
-			default:
-				result <- job.Run(quit)
-				select {
-				case <-quit:
-					break loop
-				case <-time.After(job.Interval):
-
-				}
+			case <-t.C:
+				t.Reset(job.Interval)
+				job.Result <- job.Run()
 			}
 		}
 		log.Printf("Stop Loop For Job: %s\n", job.Url)
 	}()
 }
 
-func (job *Job) Run(quit chan bool) JobResult {
+type ioutilReadResult struct {
+	body []byte
+	err  error
+}
+
+func (job *Job) Run() JobResult {
 	var result JobResult
 
 	log.Printf("Start Test Url: %s\n", job.Url)
@@ -85,30 +94,29 @@ func (job *Job) Run(quit chan bool) JobResult {
 	}
 
 	result.Code = resp.StatusCode
-	dataChannel := make(chan []byte)
-	go func() {
+
+	resultChan := make(chan ioutilReadResult)
+	go func(resp *http.Response, resultChan chan<- ioutilReadResult) {
 		defer resp.Body.Close()
-		body, err2 := ioutil.ReadAll(resp.Body)
-		if err2 == nil {
-			dataChannel <- body
-		} else {
-			log.Printf("ioutil.ReadAll: %v\n", err2)
-		}
-		close(dataChannel)
-	}()
+		defer close(resultChan)
+		body, err := ioutil.ReadAll(resp.Body)
+		resultChan <- ioutilReadResult{body: body, err: err}
+	}(resp, resultChan)
+
 	select {
-	case <-quit:
+	case <-job.Quit:
 		log.Printf("Abort")
 		result.Err = errors.New("Abort")
 		return result
-	case body := <-dataChannel:
-		result.Duration = time.Since(startTime)
-		result.Size = len(body)
-	}
-
-	if result.Size <= 0 {
-		result.Err = errors.New("Empty")
-		return result
+	case respResult := <-resultChan:
+		if respResult.err == nil {
+			result.Duration = time.Since(startTime)
+			result.Size = len(respResult.body)
+		} else {
+			log.Printf("ioutil.ReadAll: %v\n", respResult.err)
+			result.Err = respResult.err
+			return result
+		}
 	}
 	log.Printf("Finish Test Url: %s\n  Use Time: %f, Download %d Bytes", job.Url, result.Duration.Seconds(), result.Size)
 	return result

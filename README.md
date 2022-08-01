@@ -10,5 +10,4 @@
 ./app --target-url={$url_1} --target-url={$url_2} --target-url={$url_3} ...
 
 比如
-./app --target-url=https://dl-cdn.alpinelinux.org/alpine/v3.16/releases/x86_64/alpine-miniroo
-tfs-3.16.1-x86_64.tar.gz --target-url=https://dl-cdn.alpinelinux.org/alpine/v3.16/releases/x86/alpine-minirootfs-3.16.1-x86.tar.gz
+./app --target-url=https://dl-cdn.alpinelinux.org/alpine/v3.16/releases/x86_64/alpine-minirootfs-3.16.1-x86_64.tar.gz --target-url=https://dl-cdn.alpinelinux.org/alpine/v3.16/releases/x86/alpine-minirootfs-3.16.1-x86.tar.gz

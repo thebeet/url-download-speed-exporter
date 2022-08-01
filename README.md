@@ -7,7 +7,7 @@
 为提高数据准确性，建议使用至少2MB大小的url
 
 ## 使用方法
-/exporter --target-url={$url_1} --target-url={$url_2} --target-url={$url_3} ...
+`/exporter --target={$url_1} --target={$url_2} --target={$url_3} ...`
 
-比如
-/exporter --target-url=https://dl-cdn.alpinelinux.org/alpine/v3.16/releases/x86_64/alpine-minirootfs-3.16.1-x86_64.tar.gz --target-url=https://dl-cdn.alpinelinux.org/alpine/v3.16/releases/x86/alpine-minirootfs-3.16.1-x86.tar.gz
+比如使用docker
+```docker run --rm -it -p 8080:8080 thebeet/url-download-speed-exporter --target=https://dl-cdn.alpinelinux.org/alpine/v3.16/releases/x86_64/alpine-minirootfs-3.16.1-x86_64.tar.gz --target=https://dl-cdn.alpinelinux.org/alpine/v3.16/releases/x86/alpine-minirootfs-3.16.1-x86.tar.gz```

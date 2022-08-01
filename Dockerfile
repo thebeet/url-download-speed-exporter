@@ -5,9 +5,9 @@ COPY go.sum ./
 RUN go env -w GOPROXY=https://proxy.golang.com.cn,direct
 RUN go mod download
 COPY *.go ./
-RUN CGO_ENABLED=0 go build -o /exporter
+RUN CGO_ENABLED=0 go build -ldflags "-s -w" -o /exporter
 
-FROM alpine:3.15
+FROM alpine:3.16
 WORKDIR /
 COPY --from=build /exporter /exporter
 EXPOSE 80

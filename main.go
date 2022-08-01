@@ -50,7 +50,7 @@ func main() {
 	for _, target := range urlTargets {
 		job := NewJob(target, time.Duration(*interval)*time.Second)
 		jobs = append(jobs, job)
-		job.Loop()
+		go job.Loop()
 		go jobResultMetrics(job)
 	}
 

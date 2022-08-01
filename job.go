@@ -2,7 +2,7 @@ package main
 
 import (
 	"errors"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"regexp"
@@ -49,26 +49,24 @@ func NewJob(url string, defaultInterval time.Duration) *Job {
 }
 
 func (job *Job) Loop() {
-	go func() {
-		defer close(job.Done)
-		log.Printf("Begin Loop For Job: %s, Interval: %f\n", job.Url, job.Interval.Seconds())
-		t := time.NewTicker(job.Interval)
-		defer t.Stop()
-	loop:
-		for {
-			select {
-			case <-job.Quit:
-				break loop
-			case <-t.C:
-				t.Reset(job.Interval)
-				job.Result <- job.Run()
-			}
+	defer close(job.Done)
+	log.Printf("Begin Loop For Job: %s, Interval: %f\n", job.Url, job.Interval.Seconds())
+	t := time.NewTicker(job.Interval)
+	defer t.Stop()
+loop:
+	for {
+		select {
+		case <-job.Quit:
+			break loop
+		case <-t.C:
+			t.Reset(job.Interval)
+			job.Result <- job.Run()
 		}
-		log.Printf("Stop Loop For Job: %s\n", job.Url)
-	}()
+	}
+	log.Printf("Stop Loop For Job: %s\n", job.Url)
 }
 
-type ioutilReadResult struct {
+type ioReadResult struct {
 	body []byte
 	err  error
 }
@@ -95,12 +93,12 @@ func (job *Job) Run() JobResult {
 
 	result.Code = resp.StatusCode
 
-	resultChan := make(chan ioutilReadResult)
-	go func(resp *http.Response, resultChan chan<- ioutilReadResult) {
+	resultChan := make(chan ioReadResult)
+	go func(resp *http.Response, resultChan chan<- ioReadResult) {
 		defer resp.Body.Close()
 		defer close(resultChan)
-		body, err := ioutil.ReadAll(resp.Body)
-		resultChan <- ioutilReadResult{body: body, err: err}
+		body, err := io.ReadAll(resp.Body)
+		resultChan <- ioReadResult{body: body, err: err}
 	}(resp, resultChan)
 
 	select {
@@ -113,7 +111,7 @@ func (job *Job) Run() JobResult {
 			result.Duration = time.Since(startTime)
 			result.Size = len(respResult.body)
 		} else {
-			log.Printf("ioutil.ReadAll: %v\n", respResult.err)
+			log.Printf("io.ReadAll: %v\n", respResult.err)
 			result.Err = respResult.err
 			return result
 		}
